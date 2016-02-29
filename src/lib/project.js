@@ -83,49 +83,65 @@ export default class Project {
     }
   }
 
-  async compile() {
+  async compile(paths) {
+    // Set up the dist directory
     await this.directory.rm('dist');
-    const distDirectory = await this.directory.mkdir('dist');
+    const distMainDirectory = await this.directory.mkdir('dist');
 
-    const packageJson = await this.packageJson();
-    const distPackageJson = new PackageJson(packageJson)
-      .moveTo('src')
-      .toProduction()
-      .addBabelRuntime()
-      .toJSON();
+    // Add a modified package.json & entry point
+    const distPackageJson = new PackageJson(await this.packageJson())
+        .moveTo('src')
+        .toProduction()
+        .addBabelRuntime();
+    const entryPoint = distPackageJson.generateEntryPoint();
+    console.log(entryPoint);
+    await distMainDirectory.writeFile('index.js', entryPoint);
+    await distMainDirectory.writeFile('package.json',
+            distPackageJson.toJSON());
 
-    await distDirectory.writeFile('package.json', distPackageJson);
+    const presets = {
+        es5: {
+            presets: 'es2015,stage-3',
+            plugins: 'transform-runtime',
+        },
+        node4: {
+            presets: 'es2015-node4,stage-3',
+            plugins: 'transform-runtime',
+        },
+    };
 
-    await Promise.all(
-      (packageJson.files || [])
-      .filter((fileName) => fileName.indexOf('src') !== 0)
-      .map((fileName) => distDirectory.cp(this.directory.join(fileName), fileName))
-    );
+    for (const presetName of Object.keys(presets)) {
+        const preset = presets[presetName];
+        const distDirectory = await distMainDirectory.mkdir(presetName);
 
-    await this.directory.mkdir('src');
-    await this.directory.execSh([
-      `'${require.resolve('babel-cli/bin/babel')}'`,
-      '--presets es2015,stage-0',
-      '--plugins transform-decorators-legacy,transform-runtime',
-      '--copy-files',
-      'src',
-      '--out-dir dist'
-    ].join(' '));
 
-    const {bin = {}} = distPackageJson;
-    const shebang = '#!/usr/bin/env node';
-    await Promise.all(
-      Object.keys(bin).map(async (binName) => {
-        const binPath = bin[binName];
-        const binContents = await distDirectory.readFile(binPath);
-        await distDirectory.writeFile(
-          binPath,
-          binContents.indexOf(shebang) === 0 ?
-            binContents :
-            `${shebang}\n${binContents}`
-        );
-        await distDirectory.chmod(binPath, '755');
-      })
-    );
+        const src = 'src';
+        await distDirectory.mkdir(src);
+        const out = await this.directory.execSh([
+                `'${require.resolve('babel-cli/bin/babel')}'`,
+                '--presets ' + preset.presets,
+                '--plugins ' + preset.plugins,
+                '--copy-files',
+                src,
+                '--out-dir ' + distDirectory.join('')
+        ].join(' '));
+        console.log(out);
+
+        //const {bin = {}} = distPackageJson;
+        //const shebang = '#!/usr/bin/env node';
+        //await Promise.all(
+        //        Object.keys(bin).map(async (binName) => {
+        //            const binPath = bin[binName];
+        //            const binContents = await distDirectory.readFile(binPath);
+        //            await distDirectory.writeFile(
+        //                    binPath,
+        //                    binContents.indexOf(shebang) === 0 ?
+        //                    binContents :
+        //                    `${shebang}\n${binContents}`
+        //                    );
+        //            await distDirectory.chmod(binPath, '755');
+        //        })
+        //        );
+    }
   }
 }

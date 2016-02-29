@@ -90,4 +90,22 @@ export default class PackageJson {
       })
     });
   }
+
+  generateEntryPoint() {
+    const main = this.packageJson.main || 'index.js';
+    this.PackageJson = this.map({
+        main: 'index.js'
+    });
+    return `
+'use strict';
+
+var version = process && process.version;
+var target = 'es5';
+if (version) {
+    if (version >= 'v4.') {
+        target = 'node4';
+    }
+}
+module.exports = require(__dirname + '/' + target + '/${main}').default;`;
+  }
 }

@@ -1,23 +1,17 @@
 import posix from 'posix';
 import Project from '../lib/project';
 
-async function run() {
+async function run(paths) {
   const project = new Project();
-  const currentNpmCommand = JSON.parse(process.env.npm_config_argv).original[0];
-  if (currentNpmCommand === 'install') {
-    await project.linkAll();
-  } else if (currentNpmCommand === 'publish') {
-    await project.compile();
-    const output = await project.directory.execSh('npm publish dist');
-    if (output.trim()) {
-      process.stdout.write(`${output.trim()}\n`);
-    }
-    process.kill(posix.getppid());
-    await project.directory.rm('dist');
-  }
+  await project.compile(paths);
+
+  //const currentNpmCommand = JSON.parse(process.env.npm_config_argv).original[0];
+  //if (currentNpmCommand === 'install') {
+  //  await project.linkAll();
+  //}
 }
 
-run().catch((error) => {
+run(process.argv.slice(1)).catch((error) => {
   process.stderr.write(`${error.stack}\n`);
   /* eslint-disable lines-around-comment, no-process-exit */
   process.exit(1);

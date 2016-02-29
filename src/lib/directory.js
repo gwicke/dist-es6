@@ -46,7 +46,7 @@ export default class Directory {
   async writeFile(childFileName, contents) {
     const childFilePath = this.join(childFileName);
     const childFileContents = typeof contents === 'object' ?
-      JSON.stringify(contents) :
+      JSON.stringify(contents, null, 2) :
       contents;
     await fse.remove(childFilePath);
     await fs.writeFile(childFilePath, childFileContents);
